@@ -4,7 +4,12 @@
 #include %A_LineFile%\..\CLR.ahk
 #include *i %A_LineFile%\..\MemoryRead\Imports\IC_GameVersion64_Import.ahk
 #include *i %A_LineFile%\..\MemoryRead\Imports\IC_GameVersion32_Import.ahk
+#include %A_LineFile%\..\IC_GUIFunctions_Class.ahk
+
 Gui, ICSHVersionPicker:New
+GUIFunctions.LoadTheme("ICSHVersionPicker")
+GUIFunctions.UseThemeBackgroundColor()
+GUIFunctions.UseThemeTextColor()
 Gui, ICSHVersionPicker:+Resize -MaximizeBox
 Gui, ICSHVersionPicker:Add, GroupBox, w300 h75, Pointer Select: 
 Gui, ICSHVersionPicker:Add, Text, xp+10 yp+15 w100, Platform:
@@ -18,6 +23,7 @@ Gui, ICSHVersionPicker:Add, Text, x20 y+8 w300 h26 vVersionPickerSuggestionText2
 Gui, ICSHVersionPicker:Font, w400
 Gui, ICSHVersionPicker:Add, Text, x13 y+2 w300 vVersionPickerDetectionText, Script Hub Recommends: Checking...
 Gui, ICSHVersionPicker:Show, , Memory Version Picker
+GUIFunctions.UseThemeTitleBar("ICSHVersionPicker")
 
 global scriptLocation := A_LineFile . "\..\"
 global g_VersionPickerPlatformChoice
@@ -90,7 +96,10 @@ VersionPickerSaveChoice()
         MsgBox, Please select both the platform and version.
         return
     }
-    failedWrite := WriteObjectToJSON(scriptLocation . "MemoryRead\CurrentPointers.json", GameObj[VersionPickerPlatformDropdown][VersionPickerVersionDropdown] )
+    pointersToWrite := GameObj[VersionPickerPlatformDropdown][VersionPickerVersionDropdown]
+    pointersToWrite["Platform"] := VersionPickerPlatformDropdown
+    pointersToWrite["Version"] := VersionPickerVersionDropdown
+    failedWrite := WriteObjectToJSON(scriptLocation . "MemoryRead\CurrentPointers.json", pointersToWrite )
     if !failedWrite
     {
         MsgBox, Settings saved! ; Close/Restart all running Script Hub scripts before continuing.

@@ -33,6 +33,8 @@ class IC_SharedData_Class
     BadAutoProgress := 0
     PreviousStacksFromOffline := 0
     TargetStacks := 0
+    ShiniesByChamp := {}
+    ShiniesByChampJson := ""
 
     Close()
     {
@@ -98,14 +100,24 @@ class IC_SharedFunctions_Class
     ; returns this class's version information (string)
     GetVersion()
     {
-        return "v2.6.3, 2022-09-05"
+        return "v2.6.4, 2023-03-06"
     }
 
     ;Gets data from JSON file
     LoadObjectFromJSON( FileName )
     {
         FileRead, oData, %FileName%
-        return JSON.parse( oData )
+        data := "" 
+        try
+        {
+            data := JSON.parse( oData )
+        }
+        catch err
+        {
+            err.Message := err.Message . "`nFile:`t" . FileName
+            throw err
+        }
+        return data
     }
 
     ;Writes beautified json (object) to a file (FileName)
@@ -135,6 +147,24 @@ class IC_SharedFunctions_Class
             }
         }
         return false
+    }
+
+    ; Parses a response from an open chests call to tally shiny counts by champ and slot. Returns count of shinies
+    ParseChestResults( chestResults )
+    {
+        shinies := 0
+        for k, v in chestResults.loot_details
+        {
+            if v.gilded
+            {
+                shinies += 1
+                g_SharedData.ShiniesByChamp[v.hero_id] := (g_SharedData.ShiniesByChamp[v.hero_id] != "" ? g_SharedData.ShiniesByChamp[v.hero_id] : {})
+                g_SharedData.ShiniesByChamp[v.hero_id][v.slot_id] := ((g_SharedData.ShiniesByChamp[v.hero_id][v.slot_id] != "") ? (g_SharedData.ShiniesByChamp[v.hero_id][v.slot_id] + 1) : 1)
+                ;string := "New shiny! Champ ID: " . v.hero_id . " (Slot " . v.slot_id . ")`n"
+            }
+        }
+        g_SharedData.ShiniesByChampJson := JSON.Stringify(g_SharedData.ShiniesByChamp)
+        return shinies
     }
 
     ;====================================================
@@ -778,7 +808,7 @@ class IC_SharedFunctions_Class
         return false
     }
 
-    ; Waits until stats are finished updating from offline progress calculations. (Currently just Sleep, 1200)
+    ; Waits until stats are finished updating from offline progress calculations.
     WaitForFinalStatUpdates()
     {
         g_SharedData.LoopString := "Waiting for offline progress (Area Active)..."
@@ -1113,9 +1143,9 @@ class IC_SharedFunctions_Class
         if(version != "")
             g_ServerCall.clientVersion := version
         tempWebRoot := this.Memory.ReadWebRoot()
-        httpString := StrSplit(tempWebRoot,":")
+        httpString := StrSplit(tempWebRoot,":")[1]
         isWebRootValid := httpString == "http" or httpString == "https"
-        g_ServerCall.webroot := isWebRootValid ? this.Memory.ReadWebRoot() : g_ServerCall.webroot
+        g_ServerCall.webroot := isWebRootValid ? tempWebRoot : g_ServerCall.webroot
         g_ServerCall.networkID := this.Memory.ReadPlatform() ? this.Memory.ReadPlatform() : g_ServerCall.networkID
         g_ServerCall.activeModronID := this.Memory.ReadActiveGameInstance() ? this.Memory.ReadActiveGameInstance() : 1 ; 1, 2, 3 for modron cores 1, 2, 3
         g_ServerCall.activePatronID := this.Memory.ReadPatronID() == "" ? previousPatron : this.Memory.ReadPatronID() ; 0 = no patron
@@ -1162,10 +1192,10 @@ class IC_SharedFunctions_Class
     }
 
     ; Calculates the number of Haste stacks will be used to progress from the current zone to the modron reset area.
-    CalculateBrivStacksConsumedToReachModronResetZone()
+    CalculateBrivStacksConsumedToReachModronResetZone(worstCase := true)
     {
         stacks := ActiveEffectKeySharedFunctions.Briv.BrivUnnaturalHasteHandler.ReadHasteStacks()
-        return stacks - this.CalculateBrivStacksLeftAtTargetZone(this.Memory.ReadCurrentZone(), this.Memory.GetModronResetArea())
+        return stacks - this.CalculateBrivStacksLeftAtTargetZone(this.Memory.ReadCurrentZone(), this.Memory.GetModronResetArea() + 1, worstCase)
     }
 
     ; Calculates the farthest zone Briv expects to jump to with his current stacks on his current zone.  avgMinOrMax: avg = 0, min = 1, max = 2.

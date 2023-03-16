@@ -108,7 +108,7 @@ class IC_BrivGemFarm_Stats_Component
         Gui, ICScriptHub:Add, Text, vg_StackCountHID x+2 w200, % g_StackCountH
         Gui, ICScriptHub:Add, Text, x%g_LeftAlign% y+2, Last Close Game Reason:
         Gui, ICScriptHub:Add, Text, vLastCloseGameReasonID x+2 w300, 
-        GUIFunctions.SetThemeTextColor()
+        GUIFunctions.UseThemeTextColor()
     }
 
     ; Adds the Once per run group box to the stats tab page under the current run group.
@@ -151,12 +151,14 @@ class IC_BrivGemFarm_Stats_Component
         Gui, ICScriptHub:Add, Text, vGoldsOpenedID x+2 w200, 0
         Gui, ICScriptHub:Add, Text, x%g_LeftAlign% y+2, Shinies Found:
         Gui, ICScriptHub:Add, Text, vShiniesID x+2 w200, 0
+        ShiniesClassNN := GUIFunctions.GetToolTipTarget("ShiniesID")
 
-        Gui, ICScriptHub:Font, cBlue w700
+        GUIFunctions.UseThemeTextColor("SpecialTextColor1", 700)
         Gui, ICScriptHub:Add, Text, x%g_LeftAlign% y+10, Bosses per hour:
         Gui, ICScriptHub:Add, Text, vbossesPhrID x+2 w50, % bossesPhr
 
-        Gui, ICScriptHub:Font, cGreen
+
+        GUIFunctions.UseThemeTextColor("SpecialTextColor2", 700)
         Gui, ICScriptHub:Add, Text, x%g_LeftAlign% y+10, Total Gems:
         Gui, ICScriptHub:Add, Text, vGemsTotalID x+2 w50, % GemsTotal
         Gui, ICScriptHub:Add, Text, x%g_LeftAlign% y+2, Gems per hour:
@@ -164,7 +166,7 @@ class IC_BrivGemFarm_Stats_Component
         
         GuiControlGet, pos, ICScriptHub:Pos, OnceRunGroupID
         g_DownAlign := g_DownAlign + posH -5
-        GUIFunctions.SetThemeTextColor()
+        GUIFunctions.UseThemeTextColor()
     }
 
     ; Adds the briv gem farm stats group to the stats page below the current run group 
@@ -190,7 +192,7 @@ class IC_BrivGemFarm_Stats_Component
         g_DownAlign := g_DownAlign + posH -5
         g_TabControlHeight := Max(g_TabControlHeight, 700)
         GUIFunctions.RefreshTabControlSize()
-        GUIFunctions.SetThemeTextColor()
+        GUIFunctions.UseThemeTextColor()
     }
 
     ; Calls the functions that have been added to the stats tab via the AddStatsTabMod function
@@ -380,6 +382,8 @@ class IC_BrivGemFarm_Stats_Component
                 GuiControl, ICScriptHub:, GoldsGainedID, % currentGoldChests - this.GoldChestCountStart + this.SharedRunData.OpenedGoldChests
                 GuiControl, ICScriptHub:, SilversOpenedID, % this.SharedRunData.OpenedSilverChests
                 GuiControl, ICScriptHub:, GoldsOpenedID, % this.SharedRunData.OpenedGoldChests
+                global ShiniesClassNN
+                g_MouseToolTips[ShiniesClassNN] := this.GetShinyCountTooltip()
                 GuiControl, ICScriptHub:, ShiniesID, % this.SharedRunData.ShinyCount
             }
             ++this.TotalRunCount
@@ -393,6 +397,37 @@ class IC_BrivGemFarm_Stats_Component
         Critical, Off
     }
 
+    ; Returns a string listing shinies found by champion.
+    GetShinyCountTooltip()
+    {
+        if (IsObject(this.SharedRunData))
+        {
+            shnieisByChampString := ""
+            shiniesJson := this.SharedRunData.ShiniesByChampJson
+            shiniesByChamp := JSON.parse(shiniesJson)
+            for champID, slots in shiniesByChamp
+            {
+                champName := g_SF.Memory.ReadChampNameByID(champID)
+                shnieisByChampString .= champName . ": Slots ["
+                for k,v in slots
+                {
+                    shnieisByChampString .= k . ","
+                }
+                if(slots != "")
+                {
+                    shnieisByChampString := SubStr(shnieisByChampString,1,StrLen(shnieisByChampString)-1)
+                }                
+                shnieisByChampString .= "]`n"
+            }
+            shnieisByChampString := SubStr(shnieisByChampString, 1, StrLen(shnieisByChampString)-1)
+            return shnieisByChampString
+        }
+        else
+        {
+            return "Cannot read data for Shiny counts."
+        }
+    }
+
     ; Updates data on the stats tab page that is collected from the Briv Gem Farm script.
     UpdateGUIFromCom()
     {
@@ -401,10 +436,7 @@ class IC_BrivGemFarm_Stats_Component
         try ; avoid thrown errors when comobject is not available.
         {
             SharedRunData := ComObjActive(g_BrivFarm.GemFarmGUID)
-            if(!g_isDarkMode)
-                GuiControl, ICScriptHub: +cBlack, LoopID, 
-            else
-                GuiControl, ICScriptHub: +cSilver, LoopID, 
+            GUIFunctions.UseThemeTextColor("HeaderTextColor", 700)
             GuiControl, ICScriptHub:, LoopID, % SharedRunData.LoopString
             GuiControl, ICScriptHub:, BossesHitThisRunID, % SharedRunData.BossesHitThisRun
             GuiControl, ICScriptHub:, TotalBossesHitID, % SharedRunData.TotalBossesHit
@@ -521,12 +553,6 @@ class IC_BrivGemFarm_Stats_Component
         this.TimerFunctions[fncToCallOnTimer] := 200
         fncToCallOnTimer :=  ObjBindMethod(this, "UpdateStartLoopStats")
         this.TimerFunctions[fncToCallOnTimer] := 3000
-        ; TODO: add this from IC_MemoryFunctions and remove from here
-        if(IsFunc(Func("IC_MemoryFunctions_ReadMemory")))
-        {
-            fncToCallOnTimer :=  Func("IC_MemoryFunctions_ReadMemory")
-            this.TimerFunctions[fncToCallOnTimer] := 250
-        }
         fncToCallOnTimer := ObjBindMethod(this, "UpdateGUIFromCom")
         this.TimerFunctions[fncToCallOnTimer] := 100
         fncToCallOnTimer := ObjBindMethod(g_SF, "MonitorIsGameClosed")
